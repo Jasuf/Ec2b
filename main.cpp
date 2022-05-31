@@ -49,32 +49,46 @@ void get_decrypt_vector(uint8_t* key, uint8_t* crypt, uint64_t crypt_size, uint8
     }
 }
 
-int main()
+int main(int argc, char* argv[])
 {
-    // First generate random key and data
     uint8_t key[16];
     uint8_t data[2048];
 
-    srand(time(NULL));
-    for (uint64_t i = 0; i < sizeof(key); i++) {
-        key[i] = rand();
-    }
-    for (uint64_t i = 0; i < sizeof(data); i++) {
-        data[i] = rand();
-    }
-
-    // Write them to Ec2b file
-    auto* ec2b = fopen("Ec2bSeed.bin", "wb");
-    if (ec2b != NULL) {
-        fwrite("Ec2b", sizeof(uint32_t), 1, ec2b); // "Ec2b", non-terminated
-        fwrite("\x10\0\0\0", sizeof(uint32_t), 1, ec2b); // 0x10, key length(?) or version
-        fwrite(key, sizeof(key), 1, ec2b);
-        fwrite("\x0\x8\0\0", sizeof(uint32_t), 1, ec2b); // 0x800, data length
-        fwrite(data, sizeof(data), 1, ec2b);
-        fclose(ec2b);
+    if (argc > 1) {
+        auto* ec2b = fopen(argv[1], "rb");
+        if (ec2b != NULL) {
+            fseek(ec2b, sizeof(uint32_t) * 2, SEEK_SET);
+            fread(key, sizeof(key), 1, ec2b);
+            fseek(ec2b, sizeof(uint32_t), SEEK_CUR);
+            fread(data, sizeof(data), 1, ec2b);
+            fclose(ec2b);
+        } else {
+            printf("Could not read seed file");
+            return 101;
+        }
     } else {
-        printf("Could not write seed file");
-        return 100;
+        // First generate random key and data
+        srand(time(NULL));
+        for (uint64_t i = 0; i < sizeof(key); i++) {
+            key[i] = rand();
+        }
+        for (uint64_t i = 0; i < sizeof(data); i++) {
+            data[i] = rand();
+        }
+    
+        // Write them to Ec2b file
+        auto* ec2b = fopen("Ec2bSeed.bin", "wb");
+        if (ec2b != NULL) {
+            fwrite("Ec2b", sizeof(uint32_t), 1, ec2b); // "Ec2b", non-terminated
+            fwrite("\x10\0\0\0", sizeof(uint32_t), 1, ec2b); // 0x10, key length(?) or version
+            fwrite(key, sizeof(key), 1, ec2b);
+            fwrite("\x0\x8\0\0", sizeof(uint32_t), 1, ec2b); // 0x800, data length
+            fwrite(data, sizeof(data), 1, ec2b);
+            fclose(ec2b);
+        } else {
+            printf("Could not write seed file");
+            return 100;
+        }
     }
 
     // Scramble key
